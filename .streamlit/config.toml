@@ -1,0 +1,18 @@
+[theme]
+# Define que a base do aplicativo é escura
+base="dark"
+
+# Cor principal (Botões, barras de progresso, seleção de rádio) - Magenta
+primaryColor="#FF00FF"
+
+# Cor do fundo da tela inteira (Um cinza quase preto)
+backgroundColor="#0E1117"
+
+# Cor de fundo dos menus laterais e caixas de seleção
+secondaryBackgroundColor="#1E2127"
+
+# A MÁGICA AQUI: Força todos os textos a serem brancos
+textColor="#FFFFFF"
+
+# Fonte padrão
+font="sans serif"
