@@ -176,7 +176,7 @@ with tab2:
 # --------------------------------------------------------------------------------
 st.sidebar.markdown("---")
 # Coloque a URL que o Streamlit Cloud gerar aqui:
-url_final = "https://seu-projeto-breno.streamlit.app" 
+url_final = "https://dashboard-interativo-trabalho-pos.streamlit.app/" 
 
 # Gerador de QR Code com cores do trabalho
 qr = qrcode.QRCode(box_size=10, border=1)
