@@ -1,142 +1,191 @@
-import streamlit as st # Biblioteca principal para criação do dashboard web interativo.
-import pandas as pd # Biblioteca para manipulação e análise dos dados em formato tabular (DataFrames).
+import streamlit as st
+import pandas as pd
+import numpy as np
+import tensorflow as tf
+import joblib
+import qrcode
+from io import BytesIO
 
 # --------------------------------------------------------------------------------
-# 1. CONFIGURAÇÃO DA PÁGINA
+# 1. CONFIGURAÇÃO DA PÁGINA E ESTILO TECH NOIR
 # --------------------------------------------------------------------------------
+st.set_page_config(page_title="IA 2030: Dashboard Híbrido", layout="wide", initial_sidebar_state="expanded")
 
-# set_page_config - Define o título da aba do navegador e expande o layout para aproveitar toda a tela.
-st.set_page_config(page_title="Dashboard IA 2030", layout="wide", initial_sidebar_state="expanded") 
-
-# --------------------------------------------------------------------------------
-# 2. INJEÇÃO DE CSS
-# --------------------------------------------------------------------------------
-# O st.markdown com unsafe_allow_html=True permite contornar o estilo padrão do Streamlit e injetar CSS customizado.
 st.markdown("""
     <style>
-    /* Fundo da aplicação em Azul-petróleo escuro (#0A1428) e texto base em branco para contraste */
-    .stApp {
-        background-color: #0A1428;
-        color: #FFFFFF;
-        font-family: 'Segoe UI', Calibri, sans-serif; 
-    }
+    /* Estética de Fundo e Texto */
+    .stApp { background-color: #0A1428; color: #FFFFFF; font-family: 'Segoe UI', sans-serif; }
     
-    /* Estiliza os títulos com a cor de destaque Cyan (#00FFFF) e fonte em negrito */
-    h1, h2, h3 {
-        color: #00FFFF !important;
-        font-family: 'Calibri', sans-serif;
-        font-weight: bold;
-    }
+    /* Títulos em Cyan Neon */
+    h1, h2, h3 { color: #00FFFF !important; font-weight: bold; }
     
-    /* Escurece a barra lateral e adiciona uma borda Magenta (#FF00FF) para separação visual */
-    [data-testid="stSidebar"] {
-        background-color: #0D0D0D;
-        border-right: 2px solid #FF00FF;
-    }
+    /* Barra Lateral com Borda Magenta */
+    [data-testid="stSidebar"] { background-color: #0D0D0D; border-right: 2px solid #FF00FF; }
     
-    /* 'cyber-card': Classe customizada para os blocos de informação simulando caixas com bordas coloridas */
+    /* Cards de Dados (Fase 1) */
     .cyber-card {
-        background-color: #10203A; /* Fundo ligeiramente mais claro para destacar da página */
+        background-color: #10203A;
         padding: 20px;
         border-radius: 8px;
-        border: 1.5px solid #00FFFF; /* Borda Cyan obrigatória do design system */
-        margin-bottom: 15px; /* Espaçamento entre os cards */
-        box-shadow: 0 0 10px rgba(0, 255, 255, 0.2); /* Efeito sutil de brilho neon */
+        border: 1.5px solid #00FFFF;
+        margin-bottom: 15px;
+        box-shadow: 0 0 10px rgba(0, 255, 255, 0.2);
     }
     
-    /* 'cyber-source': Fonte monoespaçada de código (Courier New) em verde neon para referências bibliográficas */
+    /* Estilo de Código e Fontes */
     .cyber-source {
-        font-family: 'Courier New', Courier, monospace;
+        font-family: 'Courier New', monospace;
         color: #00FF88;
         font-size: 0.9em;
         margin-top: 10px;
-    }/* 1. Cor do título do seletor ("Selecione a dimensão...") */
-    div[data-testid="stRadio"] > label, div[data-testid="stSelectbox"] > label {
-        color: #00FFFF !important; /* Ciano brilhante */
-        font-size: 18px !important;
-        font-weight: bold !important;
     }
     
-    /* 2. Cor do texto das opções ("Todas", "Habilidades", etc.) */
-    div[role="radiogroup"] label, div[data-baseweb="select"] {
-        color: #FFFFFF !important; /* Branco puro para contraste máximo */
-        font-size: 16px !important;
+    /* Widgets e Botões */
+    div[data-testid="stRadio"] > label { color: #00FFFF !important; font-weight: bold; }
+    .stButton>button {
+        background-color: transparent;
+        color: #00FFFF;
+        border: 2px solid #00FFFF;
+        border-radius: 5px;
+        font-weight: bold;
+        transition: 0.3s;
     }
-
-    /* 3. Cor da bolinha de seleção quando ativada (Opcional, mas fica legal) */
-    div[data-testid="stRadio"] span[data-baseweb="radio"] div:first-child {
-        background-color: #FF00FF !important; /* Magenta */
-    }
+    .stButton>button:hover { background-color: #00FFFF; color: #0A1428; }
     </style>
 """, unsafe_allow_html=True)
 
 # --------------------------------------------------------------------------------
-# 3. CARREGAMENTO E TRATAMENTO DOS DADOS (ETL Básico)
+# 2. CARREGAMENTO DOS "CÉREBROS" DO PROJETO (CACHE)
 # --------------------------------------------------------------------------------
-# O decorador @st.cache_data armazena o dataframe em cache na memória. Isso evita que o Python precise ler o arquivo .csv do disco a cada clique do usuário nos filtros, otimizando a performance.
+
+@st.cache_resource
+def load_ai_assets():
+    """Carrega o modelo Keras, o Scaler e a lista de Features do Colab."""
+    try:
+        model = tf.keras.models.load_model('modelo_rna_breno.h5')
+        scaler = joblib.load('scaler_breno.pkl')
+        features = joblib.load('features_breno.pkl')
+        return model, scaler, features
+    except:
+        return None, None, None
+
 @st.cache_data
-def load_data():
-    # Carrega os dados coletados na Fase 1
-    df = pd.read_csv("dados_fase1.csv")
+def load_bibliografia():
+    """Carrega os dados da Fase 1."""
+    try:
+        df = pd.read_csv("dados_fase1.csv")
+        return df.dropna(subset=['Categoria']).fillna("")
+    except:
+        return None
+
+# Instanciando os recursos
+model_rna, scaler_rna, features_reais = load_ai_assets()
+df_biblio = load_bibliografia()
+
+# --------------------------------------------------------------------------------
+# 3. INTERFACE PRINCIPAL (ABAS)
+# --------------------------------------------------------------------------------
+st.title("🌐 Futuro do Trabalho & IA 2030")
+st.markdown("### Orquestração Neuro-Simbólica para Auditoria de Risco")
+
+tab1, tab2 = st.tabs(["🔍 Explorador de Dados (Fase 1)", "🤖 Simulador Híbrido (IA Real)"])
+
+# --- ABA 1: PESQUISA BIBLIOGRÁFICA ---
+with tab1:
+    st.header("Base de Conhecimento Estratégica")
+    if df_biblio is not None:
+        st.sidebar.subheader("Filtros do Explorador")
+        categorias = ["Todas"] + list(df_biblio['Categoria'].unique())
+        filtro = st.sidebar.selectbox("Selecione a Dimensão:", categorias)
+
+        df_disp = df_biblio if filtro == "Todas" else df_biblio[df_biblio['Categoria'] == filtro]
+
+        for _, row in df_disp.iterrows():
+            st.markdown(f"""
+                <div class="cyber-card">
+                    <h4 style="color: #FFD700; margin:0;">{row['Categoria']}</h4>
+                    <p style="font-size: 1.1em; margin: 10px 0;">{row['Informação / Dado Extraído']}</p>
+                    <p style="color: #AAAAAA; font-style: italic; font-size: 0.9em;">Contexto: {row['Contexto / Dado Temporal']}</p>
+                    <div class="cyber-source">▶ FONTE: {row['Fonte']}, {row['Ano']}</div>
+                </div>
+            """, unsafe_allow_html=True)
+    else:
+        st.warning("⚠️ Arquivo 'dados_fase1.csv' não encontrado. Suba o arquivo para o repositório.")
+
+# --- ABA 2: SIMULADOR DE RISCO COM IA REAL ---
+with tab2:
+    st.header("Auditoria de Risco Algorítmico")
     
-    # Tratamento de integridade dos dados
-    df = df.dropna(how='all')
-    df = df.dropna(subset=['Categoria'])
-    return df.fillna("")
-
-# Bloco try-except de segurança: Impede que o sistema quebre exibindo erros do Python na tela do usuário.
-try:
-    df = load_data()
-except FileNotFoundError:
-    st.error("⚠️ Arquivo 'dados_fase1.csv' não encontrado! Verifique se ele está no mesmo diretório do app.py.")
-    st.stop() # Interrompe a execução da interface de forma controlada.
-except pd.errors.ParserError:
-    st.error("⚠️ Erro de parsing. Verifique se o CSV está salvo com formatação UTF-8 e delimitadores corretos.")
-    st.stop()
+    if model_rna is not None:
+        c1, c2 = st.columns([1, 1.2])
+        
+        with c1:
+            st.subheader("Parâmetros do Cargo")
+            cargo_nome = st.text_input("Nome da Profissão:", "Analista de Dados")
+            
+            # Inputs que alimentam as features reais
+            exp = st.slider("Anos de Experiência:", 0, 40, 5)
+            sal = st.number_input("Salário Anual Estimado (USD):", 15000, 300000, 55000)
+            
+            # Seletores para One-Hot Encoding
+            ind_list = ["Technology", "Healthcare", "Finance", "Education", "Manufacturing"]
+            industria = st.selectbox("Indústria/Setor:", ind_list)
+            
+            if st.button("EXECUTAR PREDICÃO"):
+                # PREPARAÇÃO DO VETOR DE ENTRADA (Mapeia para as colunas do One-Hot Encoding)
+                input_data = {f: [0] for f in features_reais}
+                
+                # Preenche valores numéricos
+                if 'years_experience' in input_data: input_data['years_experience'] = [exp]
+                if 'salary_usd' in input_data: input_data['salary_usd'] = [sal]
+                
+                # Ativa a categoria correta (One-Hot)
+                col_industria = f"industry_{industria}"
+                if col_industria in input_data: input_data[col_industria] = [1]
+                
+                # Processamento e Predição
+                df_input = pd.DataFrame(input_data)
+                input_scaled = scaler_rna.transform(df_input.values)
+                prob = model_rna.predict(input_scaled, verbose=0)[0][0]
+                
+                with c2:
+                    st.subheader("Veredito do Sistema")
+                    cor_resultado = "#FF00FF" if prob > 0.5 else "#00FFFF"
+                    texto_resultado = "ALTO RISCO" if prob > 0.5 else "BAIXO RISCO"
+                    
+                    st.markdown(f"""
+                        <div style="background-color: {cor_resultado}; color: #000; padding: 30px; border-radius: 10px; text-align: center;">
+                            <h1 style="color: #000 !important; margin: 0;">{texto_resultado}</h1>
+                            <p style="font-weight: bold; font-size: 1.2em;">Confiança Estatística: {prob:.2%}</p>
+                        </div>
+                    """, unsafe_allow_html=True)
+                    
+                    # Lógica do Sistema Especialista (Explicabilidade)
+                    st.write("---")
+                    if 0.35 < prob < 0.65:
+                        st.info(f"🔍 **ZONA DE DÚVIDA:** A Rede Neural sugere auditoria complementar para {cargo_nome} devido à proximidade do limiar crítico.")
+                    else:
+                        st.success(f"✅ **DECISÃO CONSISTENTE:** O padrão de {industria} para este nível salarial está bem definido na base histórica.")
+                    
+                    st.progress(prob)
+    else:
+        st.error("❌ Erro ao carregar modelo. Certifique-se de que 'modelo_rna_breno.h5' e 'scaler_breno.pkl' estão na pasta.")
 
 # --------------------------------------------------------------------------------
-# 4. CONSTRUÇÃO DA INTERFACE DO DASHBOARD
+# 4. SIDEBAR: QR CODE E STATUS
 # --------------------------------------------------------------------------------
-# Cabeçalho principal
-st.title("🌐 Futuro do Mercado de Trabalho com IA")
-st.markdown("### Análise Multidimensional (2022 - 2030)")
-st.markdown("---") # Desenha uma linha separadora
-
-# -- Sidebar (Barra Lateral de Filtros) --
-st.sidebar.title("Filtros de Análise")
-st.sidebar.markdown("Selecione a dimensão de dados que deseja explorar:")
-
-# Extrai dinamicamente as categorias únicas da planilha e adiciona a opção "Todas" no início da lista.
-categorias = ["Todas"] + list(df['Categoria'].unique())
-
-# Renderiza os botões de rádio para o usuário selecionar o filtro desejado.
-filtro_categoria = st.sidebar.radio("Categoria de Dados:", categorias)
-
-# -- Motor de Filtragem --
-# Aplica a máscara booleana do Pandas para filtrar o DataFrame apenas com a categoria selecionada.
-if filtro_categoria != "Todas":
-    df_filtrado = df[df['Categoria'] == filtro_categoria]
-else:
-    df_filtrado = df
-
-# Feedback visual para confirmar qual filtro está ativo (usando a cor Magenta).
-st.markdown(f"Exibindo resultados para: **<span style='color:#FF00FF'>{filtro_categoria}</span>**", unsafe_allow_html=True)
-
-# --------------------------------------------------------------------------------
-# 5. RENDERIZAÇÃO DOS CARDS DE DADOS
-# --------------------------------------------------------------------------------
-# Itera sobre cada linha do DataFrame filtrado para gerar os cards dinamicamente na tela.
-for index, row in df_filtrado.iterrows():
-    # Utiliza HTML injetado para formatar cada componente da pesquisa (Categoria, Dado, Contexto, Fonte e Ano).
-    st.markdown(f"""
-    <div class="cyber-card">
-        <h4 style="color: #FFD700; margin-bottom: 5px;">{row['Categoria']}</h4>
-        <p style="font-size: 1.1em; margin-bottom: 10px;">{row['Informação / Dado Extraído']}</p>
-        <p style="color: #AAAAAA; font-style: italic;">Contexto: {row['Contexto / Dado Temporal']}</p>
-        <div class="cyber-source">▶ FONTE: {row['Fonte']}, {row['Ano']}</div>
-    </div>
-    """, unsafe_allow_html=True)
-
-# Rodapé estético da barra lateral para manter a imersão visual da apresentação.
 st.sidebar.markdown("---")
-st.sidebar.markdown("<div style='text-align: center; font-family: Courier New; color: #00FF88;'>STATUS: ONLINE<br>SISTEMA: ATIVO</div>", unsafe_allow_html=True)
+# Coloque a URL que o Streamlit Cloud gerar aqui:
+url_final = "https://seu-projeto-breno.streamlit.app" 
+
+# Gerador de QR Code com cores do trabalho
+qr = qrcode.QRCode(box_size=10, border=1)
+qr.add_data(url_final)
+qr.make(fit=True)
+img_qr = qr.make_image(fill_color="#00FFFF", back_color="#0A1428")
+
+buf = BytesIO()
+img_qr.save(buf, format="PNG")
+st.sidebar.image(buf.getvalue(), caption="Acesse a versão Mobile", use_container_width=True)
+
+st.sidebar.markdown("<div style='text-align: center; font-family: Courier New; color: #00FF88;'>STATUS: HÍBRIDO ONLINE<br>MODELO: RNA-MLP v1.0</div>", unsafe_allow_html=True)
