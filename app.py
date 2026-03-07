@@ -167,7 +167,7 @@ with tab2:
                     else:
                         st.success(f"✅ **DECISÃO CONSISTENTE:** O padrão de {industria} para este nível salarial está bem definido na base histórica.")
                     
-                    st.progress(prob)
+                    st.progress(float(prob))
     else:
         st.error("❌ Erro ao carregar modelo. Certifique-se de que 'modelo_rna_breno.h5' e 'scaler_breno.pkl' estão na pasta.")
 
